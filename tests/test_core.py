@@ -1,6 +1,12 @@
+import datetime as dt
 import unittest
+import os
 
 from context import core
+
+FIXTURES_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures"
+)
 
 
 class TestCore(unittest.TestCase):
@@ -18,16 +24,30 @@ class TestCore(unittest.TestCase):
 
         self.assertEqual(
             "nginx-access-ui.log-20170701.log",
-            core._most_recent_filename(filenames)
+            core._most_recent_filename(filenames),
         )
 
-    def test_isupper(self):
-        self.assertTrue("FOO".isupper())
-        self.assertFalse("Foo".isupper())
-
-    def test_split(self):
-        s = "hello world"
-        self.assertEqual(s.split(), ["hello", "world"])
-        # check that s.split fails when the separator is not a string
+    def test_invalid_logs_directory(self):
+        invalid_path = os.path.join(FIXTURES_PATH, "foobar")
         with self.assertRaises(TypeError):
-            s.split(2)
+            core.find_most_recent_log(invalid_path)
+
+    def test_empty_directory(self):
+        empty_directory = os.path.join(FIXTURES_PATH, "empty_directory")
+        with self.assertRaises(ValueError):
+            core.find_most_recent_log(empty_directory)
+
+    def test_find_most_recent_log(self):
+        logs_directory = os.path.join(FIXTURES_PATH, "valid_filenames")
+        expected_path = os.path.join(
+            logs_directory, "nginx-access-ui.log-20190102.log"
+        )
+        expected_date = dt.datetime(2019, 1, 2)
+
+        actual_path, actual_date, actual_ext = core.find_most_recent_log(
+            logs_directory
+        )
+
+        self.assertEqual(expected_path, actual_path)
+        self.assertEqual(expected_date, actual_date)
+        self.assertEqual("log", actual_ext)

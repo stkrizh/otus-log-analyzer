@@ -50,7 +50,7 @@ def find_most_recent_log(directory):
         the most recent log.
     """
     if not os.path.isdir(directory):
-        raise ValueError("{0} is not a directory.".format(directory))
+        raise TypeError("{0} is not a directory.".format(directory))
 
     most_recent_filename = _most_recent_filename(os.listdir(directory))
 
