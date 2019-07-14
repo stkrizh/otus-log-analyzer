@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
 }
 
 DEFAULT_CONFIG_FILE_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.ini")
+    os.path.join(os.path.dirname(__file__), "config.ini")
 )
 
 logging.basicConfig(
