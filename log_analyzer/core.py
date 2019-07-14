@@ -4,6 +4,7 @@ import os
 import re
 
 from collections import defaultdict, namedtuple
+from operator import attrgetter
 
 
 LOG_FILENAME_PATTERN = re.compile(r"^nginx-access-ui\.log-(\d{8})\.(gz|log)$")
@@ -194,20 +195,22 @@ def _aggregate_stats_by_url(log, allowed_invalid_part=0.2):
     return count_valid, time_valid, times
 
 
-def get_request_stats(log, allowed_invalid_part=0.2):
+def get_request_stats(log, count=1000, allowed_invalid_part=0.2):
     """Returns a list with statistical data for each requested URL.
 
     Parameters
     ----------
     log : LogFile
         Named tuple that describes log-file.
+    count: int
+        Return stats for `count` URLs
     allowed_invalid_part: float
         Allowed part of invalid rows in the log-file.
 
-    Yields
+    Returns
     -------
-    LogStat
-        Statistics for each requested URL.
+    List[LogStat]
+        List of statistics for each requested URL sorted by `time_sum`
 
     Raises
     ------
@@ -222,6 +225,8 @@ def get_request_stats(log, allowed_invalid_part=0.2):
     count_valid, time_all, times = _aggregate_stats_by_url(
         log, allowed_invalid_part
     )
+
+    stats = []
 
     for url in times:
         url_count = len(times[url])
@@ -238,4 +243,6 @@ def get_request_stats(log, allowed_invalid_part=0.2):
             time_max=url_sorted_times[-1],
             time_med=_median(url_sorted_times),
         )
-        yield url_stat
+        stats.append(url_stat)
+
+    return sorted(stats, key=attrgetter("time_sum"), reverse=True)[:count]
