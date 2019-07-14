@@ -27,6 +27,27 @@ LogStat = namedtuple(
 )
 
 
+def _is_valid_date(date):
+    """ Check if specified date in %Y%m%d format is valid.
+
+    Parameters
+    ----------
+    date : str
+        Date as a string in specified format.
+
+    Returns
+    -------
+    bool
+        True if the date is valid, False othersise
+    """
+    try:
+        dt.datetime.strptime(date, "%Y%m%d")
+    except ValueError:
+        return False
+
+    return True
+
+
 def _most_recent_filename(filenames):
     """Finds the most recent filename in specified iterable of filenames.
 
@@ -40,15 +61,20 @@ def _most_recent_filename(filenames):
     str
         The most recent log filename.
     """
+    most_recent = None
+    for filename in filenames:
+        search = LOG_FILENAME_PATTERN.search(filename)
+        if search is None:
+            continue
 
-    valid_ui_logs = filter(LOG_FILENAME_PATTERN.match, filenames)
+        if not _is_valid_date(search.group(1)):
+            continue
 
-    try:
-        most_recent_filename = max(valid_ui_logs)
-    except ValueError:
-        return None
+        most_recent = (
+            filename if most_recent is None else max(most_recent, filename)
+        )
 
-    return most_recent_filename
+    return most_recent
 
 
 def find_most_recent_log(directory):
