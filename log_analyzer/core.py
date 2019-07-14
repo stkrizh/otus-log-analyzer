@@ -3,7 +3,7 @@ import gzip
 import os
 import re
 
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 
 
 LOG_FILENAME_PATTERN = re.compile(r"^nginx-access-ui\.log-(\d{8})\.(gz|log)$")
@@ -11,6 +11,19 @@ LOG_REQUEST_PATTERN = re.compile(r"^.+\[.+\] \"(.+)\" \d{3}.+ (\d+\.\d+)\n$")
 
 LogFile = namedtuple("LogFile", ["path", "date", "extension"])
 LogRequest = namedtuple("LogRequest", ["url", "time"])
+LogStat = namedtuple(
+    "LogStat",
+    [
+        "url",
+        "count",
+        "count_perc",
+        "time_sum",
+        "time_perc",
+        "time_avg",
+        "time_max",
+        "time_med",
+    ],
+)
 
 
 def _most_recent_filename(filenames):
@@ -76,19 +89,19 @@ def _iterate_over_requests(log):
     Parameters
     ----------
     log : LogFile
-        Named tuple that describes log-file
+        Named tuple that describes log-file.
 
     Yields
     -------
     Optional[LogRequest]
-        LogRequest instance or None (for invalid rows)
+        LogRequest instance or None (for invalid rows).
 
     Raises
     ------
     ValueError
-        If log-file has invalid extension
+        If log-file has invalid extension.
     IOError
-        Could not open the log-file
+        Could not open the log-file.
     """
     if log.extension not in {"log", "gz"}:
         raise ValueError("Invalid extension of the log-file.")
@@ -113,3 +126,116 @@ def _iterate_over_requests(log):
             time = float(search.group(2))
 
             yield LogRequest(url, time)
+
+
+def _median(sorted_list):
+    """Returns median value for specified sorted list.
+
+    Parameters
+    ----------
+    arr: List[float]
+
+    Returns
+    -------
+    float
+    """
+    assert sorted_list, "List is empty"
+
+    n_items = len(sorted_list)
+    return 0.5 * (sorted_list[(n_items - 1) // 2] + sorted_list[n_items // 2])
+
+
+def _aggregate_stats_by_url(log, allowed_invalid_part=0.2):
+    """Aggregates time statistics for requests in specified log-file.
+
+    Parameters
+    ----------
+    log : LogFile
+        Named tuple that describes log-file.
+    allowed_invalid_part: float
+        Allowed part of invalid rows in the log-file.
+
+    Returns
+    -------
+    Tuple[float, float, Dict[str, List[float]]]
+        Number of valid rows,
+        Overall time,
+        Times for each requested URL.
+
+    Raises
+    ------
+    ValueError
+        If `allowed_invalid_part` is exceeded.
+    ValueError
+        If log-file has invalid extension.
+    IOError
+        Could not open the log-file.
+    """
+
+    count_valid = 0.0
+    count_invalid = 0.0
+
+    time_valid = 0.0
+    times = defaultdict(list)
+
+    for request in _iterate_over_requests(log):
+        if request is None:
+            count_invalid += 1
+            continue
+
+        count_valid += 1
+        time_valid += request.time
+        times[request.url].append(request.time)
+
+    count_all = (count_invalid + count_valid) or 1.0
+    if count_invalid / count_all > allowed_invalid_part:
+        raise ValueError("Too many invalid rows in the log-file.")
+
+    return count_valid, time_valid, times
+
+
+def get_request_stats(log, allowed_invalid_part=0.2):
+    """Returns a list with statistical data for each requested URL.
+
+    Parameters
+    ----------
+    log : LogFile
+        Named tuple that describes log-file.
+    allowed_invalid_part: float
+        Allowed part of invalid rows in the log-file.
+
+    Yields
+    -------
+    LogStat
+        Statistics for each requested URL.
+
+    Raises
+    ------
+    ValueError
+        If `allowed_invalid_part` is exceeded.
+    ValueError
+        If log-file has invalid extension.
+    IOError
+        Could not open the log-file.
+    """
+
+    count_valid, time_all, times = _aggregate_stats_by_url(
+        log, allowed_invalid_part
+    )
+
+    for url in times:
+        url_count = len(times[url])
+        url_sorted_times = sorted(times[url])
+        url_time_sum = sum(times[url])
+
+        url_stat = LogStat(
+            url=url,
+            count=url_count,
+            count_perc=(100 * url_count / count_valid),
+            time_sum=url_time_sum,
+            time_perc=(100 * url_time_sum / time_all),
+            time_avg=(url_time_sum / url_count),
+            time_max=url_sorted_times[-1],
+            time_med=_median(url_sorted_times),
+        )
+        yield url_stat
