@@ -97,7 +97,7 @@ def main():
     try:
         most_recent_log = find_most_recent_log(log_dir)
     except TypeError:
-        logging.error("Invalid log directory.")
+        logging.error("Log directory ({0}) does not exist.".format(log_dir))
         sys.exit()
     except Exception:
         logging.exception("Unexpected error with the most recent log search: ")
@@ -124,6 +124,9 @@ def main():
             count=report_size,
             allowed_invalid_part=allowed_invalid_records_part,
         )
+    except UnicodeDecodeError:
+        logging.error("Only UTF-8 encoding is allowed for logs")
+        sys.exit()
     except ValueError:
         logging.info(
             "Allowed invalid records part ({0}) is exceeded.".format(

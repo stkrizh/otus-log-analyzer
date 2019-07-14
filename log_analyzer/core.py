@@ -142,6 +142,7 @@ def _iterate_over_requests(log):
 
     with open_method(log.path, "rb") as f:
         for line in f:
+            line = line.decode("utf-8")
             search = LOG_REQUEST_PATTERN.search(line)
 
             if search is None:

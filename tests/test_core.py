@@ -187,7 +187,5 @@ class TestCore(unittest.TestCase):
         )
 
     def test_get_request_stats_encoding_file(self):
-        self.assertEqual(
-            3,
-            len(core.get_request_stats(self.encoding_log, 0.5))
-        )
+        with self.assertRaises(UnicodeDecodeError):
+            core.get_request_stats(self.encoding_log, 0.5)
