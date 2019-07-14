@@ -23,7 +23,7 @@ def _render(stats):
         String representation of rendered template
     """
     with open(TEMPLATE, "rb") as f:
-        template = Template(f.read())
+        template = Template(f.read().decode("utf-8"))
 
     return template.safe_substitute(
         table_json=json.dumps([record._asdict() for record in stats])
@@ -48,4 +48,4 @@ def write(stats, to):
     rendered_template = _render(stats)
 
     with open(to, "wb") as f:
-        f.write(rendered_template)
+        f.write(rendered_template.encode("utf-8"))

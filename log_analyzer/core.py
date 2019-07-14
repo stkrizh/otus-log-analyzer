@@ -266,7 +266,7 @@ def get_request_stats(log, count=1000, allowed_invalid_part=0.2):
         url_time_sum = sum(times[url])
 
         url_stat = LogStat(
-            url=url.encode("utf-8"),
+            url=url,
             count=url_count,
             count_perc=(100 * url_count / count_valid),
             time_sum=url_time_sum,
