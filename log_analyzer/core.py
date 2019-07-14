@@ -61,9 +61,14 @@ def find_most_recent_log(directory):
 
     Returns
     -------
-    LogFile
+    Optional[LogFile] or None
         Named tuple with full path, date and extension of
         the most recent log.
+
+    Raises
+    ------
+    TypeError
+        Invalid directory.
     """
     if not os.path.isdir(directory):
         raise TypeError("{0} is not a directory.".format(directory))
@@ -71,7 +76,7 @@ def find_most_recent_log(directory):
     most_recent_filename = _most_recent_filename(os.listdir(directory))
 
     if most_recent_filename is None:
-        raise ValueError("There are no valid logs.")
+        return None
 
     raw_date, extension = LOG_FILENAME_PATTERN.search(
         most_recent_filename
@@ -97,12 +102,12 @@ def _iterate_over_requests(log):
     Optional[LogRequest]
         LogRequest instance or None (for invalid rows).
 
-    Raises
-    ------
-    ValueError
-        If log-file has invalid extension.
-    IOError
-        Could not open the log-file.
+        Raises
+        ------
+        ValueError
+            If log-file has invalid extension.
+        IOError
+            Could not open the log-file.
     """
     if log.extension not in {"log", "gz"}:
         raise ValueError("Invalid extension of the log-file.")
