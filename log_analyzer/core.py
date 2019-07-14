@@ -200,7 +200,7 @@ def get_request_stats(log, count=1000, allowed_invalid_part=0.2):
 
     Parameters
     ----------
-    log : LogFile
+    log: LogFile
         Named tuple that describes log-file.
     count: int
         Return stats for `count` URLs
