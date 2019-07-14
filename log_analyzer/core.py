@@ -38,7 +38,7 @@ def _is_valid_date(date):
     Returns
     -------
     bool
-        True if the date is valid, False othersise
+        True if the date is valid, False otherwise
     """
     try:
         dt.datetime.strptime(date, "%Y%m%d")
@@ -58,8 +58,8 @@ def _most_recent_filename(filenames):
 
     Returns
     -------
-    str
-        The most recent log filename.
+    Optional[str]
+        The most recent log filename or None
     """
     most_recent = None
     for filename in filenames:
@@ -87,7 +87,7 @@ def find_most_recent_log(directory):
 
     Returns
     -------
-    Optional[LogFile] or None
+    Optional[LogFile]
         Named tuple with full path, date and extension of
         the most recent log.
 
@@ -128,12 +128,12 @@ def _iterate_over_requests(log):
     Optional[LogRequest]
         LogRequest instance or None (for invalid rows).
 
-        Raises
-        ------
-        ValueError
-            If log-file has invalid extension.
-        IOError
-            Could not open the log-file.
+    Raises
+    ------
+    ValueError
+        If log-file has invalid extension.
+    IOError
+        Could not open the log-file.
     """
     if log.extension not in {"log", "gz"}:
         raise ValueError("Invalid extension of the log-file.")
