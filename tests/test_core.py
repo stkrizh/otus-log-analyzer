@@ -10,6 +10,24 @@ FIXTURES_PATH = os.path.join(
 
 
 class TestCore(unittest.TestCase):
+    def test_is_valid_date(self):
+        self.assertTrue(core._is_valid_date("20190606"))
+        self.assertTrue(core._is_valid_date("10001010"))
+        self.assertTrue(core._is_valid_date("20200229"))
+
+        self.assertFalse(core._is_valid_date("20190631"))
+        self.assertFalse(core._is_valid_date("_20180606"))
+        self.assertFalse(core._is_valid_date("20190606_"))
+
+    def test_median(self):
+        with self.assertRaises(AssertionError):
+            core._median([])
+
+        self.assertEqual(1, core._median([1]))
+        self.assertEqual(1, core._median([1, 1, 1]))
+        self.assertEqual(4, core._median([1, 4, 4, 4, 1]))
+        self.assertEqual(3.5, core._median([1, 2, 3, 4, 5, 6]))
+
     def test_most_recent_filenames(self):
         filenames = [
             "nginx-access-ui.log-20170630.gz",
@@ -34,8 +52,7 @@ class TestCore(unittest.TestCase):
 
     def test_empty_directory(self):
         empty_directory = os.path.join(FIXTURES_PATH, "empty_directory")
-        with self.assertRaises(ValueError):
-            core.find_most_recent_log(empty_directory)
+        self.assertIs(None, core.find_most_recent_log(empty_directory))
 
     def test_find_most_recent_log(self):
         logs_directory = os.path.join(FIXTURES_PATH, "valid_filenames")
