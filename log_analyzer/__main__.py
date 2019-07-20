@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 
 
-def _get_parameters():
+def get_config():
     """Parses arguments and config parameters.
     """
     parser = ArgumentParser(__doc__)
@@ -54,54 +54,20 @@ def _get_parameters():
     config = SafeConfigParser(defaults=DEFAULT_CONFIG)
     config.read(args.config)
 
-    report_size = config.getint("main", "REPORT_SIZE")
-    allowed_invalid_records_part = config.getfloat(
-        "main", "ALLOWED_INVALID_RECORDS_PART"
-    )
-    report_dir = config.get("main", "report_dir")
-    log_dir = config.get("main", "log_dir")
-
-    return report_size, allowed_invalid_records_part, report_dir, log_dir
+    return config
 
 
 def main():
     """Entry point to the log analyzer programm.
     """
-    try:
-        report_size, allowed_invalid_records_part, report_dir, log_dir = (
-            _get_parameters()
-        )
-    except UnicodeDecodeError:
-        logging.error("Only UTF-8 is allowed encoding for config file.")
-        sys.exit()
-    except ConfigError as exc:
-        logging.error("Config file is invalid.")
-        sys.exit()
-    except ValueError as exc:
-        logging.error("Error in the config file: " + str(exc))
-        sys.exit()
-    except Exception:
-        logging.exception("Unexpected error with parameters: ")
-        sys.exit()
+    config = get_config()
 
+    report_dir = config.get("main", "REPORT_DIR")
     if not os.path.exists(report_dir):
-        try:
-            os.makedirs(report_dir)
-        except OSError:
-            logging.error("Unable to create report directory.")
-            sys.exit()
-        except Exception:
-            logging.exception("Unexpected error with report directory: ")
-            sys.exit()
+        os.makedirs(report_dir)
 
-    try:
-        most_recent_log = find_most_recent_log(log_dir)
-    except TypeError:
-        logging.error("Log directory ({0}) does not exist.".format(log_dir))
-        sys.exit()
-    except Exception:
-        logging.exception("Unexpected error with the most recent log search: ")
-        sys.exit()
+    log_dir = config.get("main", "LOG_DIR")
+    most_recent_log = find_most_recent_log(log_dir)
 
     if most_recent_log is None:
         logging.info("There are no valid logs in the directory.")
@@ -112,34 +78,19 @@ def main():
     )
 
     report_filename = most_recent_log.date.strftime("report-%Y.%m.%d.html")
-
     if os.path.exists(os.path.join(report_dir, report_filename)):
         msg = "Report for %Y.%m.%d already exists."
         logging.info(most_recent_log.date.strftime(msg))
         sys.exit()
 
-    try:
-        request_stats = get_request_stats(
-            most_recent_log,
-            count=report_size,
-            allowed_invalid_part=allowed_invalid_records_part,
-        )
-    except UnicodeDecodeError:
-        logging.error("Only UTF-8 encoding is allowed for logs")
-        sys.exit()
-    except ValueError:
-        logging.info(
-            "Allowed invalid records part ({0}) is exceeded.".format(
-                allowed_invalid_records_part
-            )
-        )
-        sys.exit()
-    except KeyboardInterrupt:
-        logging.info("Stats processing has been interrupted.")
-        sys.exit()
-    except Exception:
-        logging.exception("Unexpected error with stats processing.")
-        sys.exit()
+    report_size = config.int("main", "REPORT_SIZE")
+    allowed_invalid_records_part = config.getfloat("main", "REPORT_SIZE")
+
+    request_stats = get_request_stats(
+        most_recent_log,
+        count=report_size,
+        allowed_invalid_part=allowed_invalid_records_part,
+    )
 
     if not request_stats:
         logging.info(
@@ -149,15 +100,14 @@ def main():
         )
         sys.exit()
 
-    try:
-        write(request_stats, to=os.path.join(report_dir, report_filename))
-    except IOError:
-        logging.error("Unable to write report.")
-    except Exception:
-        logging.exception("Unexpected error: ")
-
+    write(request_stats, to=os.path.join(report_dir, report_filename))
     logging.debug("Report has been successfully generated.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Terminated...")
+    except Exception:
+        logging.exception()
