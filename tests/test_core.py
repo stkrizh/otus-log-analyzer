@@ -69,15 +69,6 @@ class TestCore(unittest.TestCase):
             extension="log",
         )
 
-    def test_is_valid_date(self):
-        self.assertTrue(core._is_valid_date("20190606"))
-        self.assertTrue(core._is_valid_date("10001010"))
-        self.assertTrue(core._is_valid_date("20200229"))
-
-        self.assertFalse(core._is_valid_date("20190631"))
-        self.assertFalse(core._is_valid_date("_20180606"))
-        self.assertFalse(core._is_valid_date("20190606_"))
-
     def test_median(self):
         with self.assertRaises(AssertionError):
             core._median([])
@@ -86,23 +77,6 @@ class TestCore(unittest.TestCase):
         self.assertEqual(1, core._median([1, 1, 1]))
         self.assertEqual(4, core._median([1, 4, 4, 4, 1]))
         self.assertEqual(3.5, core._median([1, 2, 3, 4, 5, 6]))
-
-    def test_most_recent_filenames(self):
-        filenames = [
-            "nginx-access-ui.log-20170630.gz",
-            "nginx-access-ui.log-20150629.gz",
-            "nginx-access-ui.log-20150630.bz",
-            "image.jpg",
-            "nginx-access-ui.log-20150630.gz",
-            "nginx-access-ui.log-20170701.log",
-            "nginx-access-ui.log-20170701.gz",
-            "nginx-access-XX.log-20191212.gz",
-        ]
-
-        self.assertEqual(
-            "nginx-access-ui.log-20170701.log",
-            core._most_recent_filename(filenames),
-        )
 
     def test_invalid_logs_directory(self):
         invalid_path = os.path.join(FIXTURES_PATH, "foobar")

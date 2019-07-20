@@ -27,56 +27,6 @@ LogStat = namedtuple(
 )
 
 
-def _is_valid_date(date):
-    """ Check if specified date in %Y%m%d format is valid.
-
-    Parameters
-    ----------
-    date : str
-        Date as a string in specified format.
-
-    Returns
-    -------
-    bool
-        True if the date is valid, False otherwise
-    """
-    try:
-        dt.datetime.strptime(date, "%Y%m%d")
-    except ValueError:
-        return False
-
-    return True
-
-
-def _most_recent_filename(filenames):
-    """Finds the most recent filename in specified iterable of filenames.
-
-    Parameters
-    ----------
-    filenames : Iterable[str]
-        Log filenames.
-
-    Returns
-    -------
-    Optional[str]
-        The most recent log filename or None
-    """
-    most_recent = None
-    for filename in filenames:
-        search = LOG_FILENAME_PATTERN.search(filename)
-        if search is None:
-            continue
-
-        if not _is_valid_date(search.group(1)):
-            continue
-
-        most_recent = (
-            filename if most_recent is None else max(most_recent, filename)
-        )
-
-    return most_recent
-
-
 def find_most_recent_log(directory):
     """Finds most recent log in specified directory.
 
@@ -99,19 +49,33 @@ def find_most_recent_log(directory):
     if not os.path.isdir(directory):
         raise TypeError("{0} is not a directory.".format(directory))
 
-    most_recent_filename = _most_recent_filename(os.listdir(directory))
+    most_recent_date = None
+    most_recent_filename = None
+    most_recent_ext = None
 
-    if most_recent_filename is None:
+    for filename in os.listdir(directory):
+        search = LOG_FILENAME_PATTERN.search(filename)
+        if search is None:
+            continue
+
+        raw_date, extension = search.groups()
+        try:
+            date = dt.datetime.strptime(raw_date, "%Y%m%d")
+        except ValueError:
+            continue
+
+        if most_recent_date is None or date > most_recent_date:
+            most_recent_date = date
+            most_recent_filename = filename
+            most_recent_ext = extension
+
+    if most_recent_date is None:
         return None
-
-    raw_date, extension = LOG_FILENAME_PATTERN.search(
-        most_recent_filename
-    ).groups()
 
     return LogFile(
         path=os.path.abspath(os.path.join(directory, most_recent_filename)),
-        date=dt.datetime.strptime(raw_date, "%Y%m%d"),
-        extension=extension,
+        date=most_recent_date,
+        extension=most_recent_ext,
     )
 
 

@@ -16,7 +16,7 @@ import sys
 import logging
 
 from argparse import ArgumentParser
-from ConfigParser import SafeConfigParser, Error as ConfigError
+from ConfigParser import SafeConfigParser
 
 from core import find_most_recent_log, get_request_stats
 from writer import write
