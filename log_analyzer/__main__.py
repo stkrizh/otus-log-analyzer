@@ -83,7 +83,7 @@ def main():
         logging.info(most_recent_log.date.strftime(msg))
         sys.exit()
 
-    report_size = config.int("main", "REPORT_SIZE")
+    report_size = config.getint("main", "REPORT_SIZE")
     allowed_invalid_records_part = config.getfloat("main", "REPORT_SIZE")
 
     request_stats = get_request_stats(
@@ -109,5 +109,5 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         logging.info("Terminated...")
-    except Exception:
-        logging.exception()
+    except Exception as exc:
+        logging.exception(exc)
