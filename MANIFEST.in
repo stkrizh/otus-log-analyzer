@@ -1,2 +1,0 @@
-include log_analyzer/templates/report.html
-include log_analyzer/config.ini

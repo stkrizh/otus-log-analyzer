@@ -1,14 +1,55 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+""" Log Analyzer
+
+The program is supposed to be used to analyze Nginx access logs in
+the predefined format.
+
+Example of allowed log names:
+* nginx-access-ui.log-20170630.gz
+* nginx-access-ui.log-20170630.log
+
+"""
+
 import datetime as dt
 import gzip
+import json
+import logging
 import os
 import re
+import sys
 
+from argparse import ArgumentParser
 from collections import defaultdict, namedtuple
 from operator import attrgetter
+from string import Template
 
+try:
+    from ConfigParser import SafeConfigParser
+except ImportError:
+    from configparser import SafeConfigParser
+
+
+DEFAULT_CONFIG = {
+    "REPORT_SIZE": 1000,
+    "REPORT_DIR": "./reports",
+    "LOG_DIR": "./log",
+    "ALLOWED_INVALID_RECORDS_PART": 0.2,
+    "LOGGING": "INFO",
+}
+
+DEFAULT_CONFIG_FILE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "config.ini")
+)
 
 LOG_FILENAME_PATTERN = re.compile(r"^nginx-access-ui\.log-(\d{8})\.(gz|log)$")
 LOG_REQUEST_PATTERN = re.compile(r"^.+\[.+\] \"(.+)\" \d{3}.+ (\d+\.\d+)\n$")
+
+TEMPLATE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "templates", "report.html")
+)
+
 
 LogFile = namedtuple("LogFile", ["path", "date", "extension"])
 LogRequest = namedtuple("LogRequest", ["url", "time"])
@@ -25,6 +66,79 @@ LogStat = namedtuple(
         "time_med",
     ],
 )
+
+
+def init_config():
+    """Parses arguments and config parameters.
+    """
+    parser = ArgumentParser(__doc__)
+    parser.add_argument(
+        "--config",
+        help="Path to config file.",
+        default=DEFAULT_CONFIG_FILE_PATH,
+    )
+    args = parser.parse_args()
+
+    config = SafeConfigParser(defaults=DEFAULT_CONFIG)
+    config.read(args.config)
+
+    logging_level = config.get("main", "logging")
+    logging.basicConfig(
+        level=getattr(logging, logging_level, "INFO"),
+        format="[%(asctime)s] %(levelname).1s %(message)s",
+        datefmt="%Y.%m.%d %H:%M:%S",
+    )
+
+    return config
+
+
+def main():
+    """Entry point to the log analyzer programm.
+    """
+    config = init_config()
+
+    report_dir = config.get("main", "REPORT_DIR")
+    if not os.path.exists(report_dir):
+        os.makedirs(report_dir)
+
+    log_dir = config.get("main", "LOG_DIR")
+    most_recent_log = find_most_recent_log(log_dir)
+
+    if most_recent_log is None:
+        logging.info("There are no valid logs in the directory.")
+        sys.exit()
+
+    logging.debug(
+        "Found the most recent log-file {0}.".format(most_recent_log.path)
+    )
+
+    report_filename = most_recent_log.date.strftime("report-%Y.%m.%d.html")
+    if os.path.exists(os.path.join(report_dir, report_filename)):
+        msg = "Report for %Y.%m.%d already exists."
+        logging.info(most_recent_log.date.strftime(msg))
+        sys.exit()
+
+    report_size = config.getint("main", "REPORT_SIZE")
+    allowed_invalid_records_part = config.getfloat(
+        "main", "ALLOWED_INVALID_RECORDS_PART"
+    )
+
+    request_stats = get_request_stats(
+        most_recent_log,
+        count=report_size,
+        allowed_invalid_part=allowed_invalid_records_part,
+    )
+
+    if not request_stats:
+        logging.info(
+            "The most recent log file ({0}) has no valid records.".format(
+                most_recent_log.path
+            )
+        )
+        sys.exit()
+
+    write_report(request_stats, to=os.path.join(report_dir, report_filename))
+    logging.debug("Report has been successfully generated.")
 
 
 def find_most_recent_log(directory):
@@ -47,7 +161,7 @@ def find_most_recent_log(directory):
         Invalid directory.
     """
     if not os.path.isdir(directory):
-        raise TypeError("{0} is not a directory.".format(directory))
+        raise TypeError("Can't find {0} directory with logs".format(directory))
 
     most_recent_date = None
     most_recent_filename = None
@@ -242,3 +356,54 @@ def get_request_stats(log, count=1000, allowed_invalid_part=0.2):
         stats.append(url_stat)
 
     return sorted(stats, key=attrgetter("time_sum"), reverse=True)[:count]
+
+
+def _render(stats):
+    """Renders the default template with calculated stats.
+
+    Parameters
+    ----------
+    stats: List[LogStat]
+        List of statistics for each URL.
+
+    Returns
+    -------
+    str
+        String representation of rendered template
+    """
+    with open(TEMPLATE, "rb") as f:
+        template = Template(f.read().decode("utf-8"))
+
+    return template.safe_substitute(
+        table_json=json.dumps([record._asdict() for record in stats])
+    )
+
+
+def write_report(stats, to):
+    """Writes rendered report to specified file.
+
+    Parameters
+    ----------
+    stats: List[LogStat]
+        List of statistics for each URL.
+    to: str
+        Path to write report.
+
+    Raises
+    ------
+    IOError
+        Unable to write file
+    """
+    rendered_template = _render(stats)
+
+    with open(to, "wb") as f:
+        f.write(rendered_template.encode("utf-8"))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Terminated...")
+    except Exception as exc:
+        logging.exception(exc)
